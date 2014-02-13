@@ -13,6 +13,10 @@ if [ ! -s "data/$page/revisions.tsv" ]; then
   exit 1
 fi
 
+revisions_ids=$(cat "data/$page/revisions.tsv" | grep -v -P "^rev_id\t" | awk -F "\t" '{print $1}' | tr '\n' ',' | sed 's/,$//')
+
+echo "SELECT revision_id, section_name FROM element_edit WHERE revision_id IN ($revisions_ids) GROUP BY revision_id, section_name" | mysql -u root -p contropedia > "data/$page/revisions_sections.tsv"
+
 pageid=$(head -n 2 "data/$page/revisions.tsv" | tail -n 1 | awk -F "\t" '{print $2}')
 mkdir -p "data/$page/versions/" "data/$page/screenshots/"
 

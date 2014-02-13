@@ -20,6 +20,9 @@ try:
         section_titles = csvf.read().split('\n')
     with open('threads_metrics.tsv') as csvf:
         metrics = list(csv.DictReader(csvf, delimiter="\t"))
+    with open('revisions_sections.tsv') as csvf:
+        rev_sec = csvf.read().split('\n')
+        rev_sec.pop(0)
 except Exception as e:
     sys.stderr.write("ERROR trying to read data")
     sys.stderr.write("%s: %s" % (type(e), e))
@@ -106,15 +109,30 @@ for row in metrics:
     else:
         sys.stderr.write("ERROR: could not match one thread from metrics: %s\n" % t)
 
+revisions_sec = {}
 # Look for revisions referencing a thread as comment
+for row in rev_sec:
+    if not row:
+        continue
+    rev_id, sec_title = row.split('\t')
+    rev_id = int(rev_id)
+    if not rev_id in revisions_sec:
+        revisions_sec[rev_id] = []
+    revisions_sec[rev_id].append(sec_title)
 for row in revisions:
     src = re_talk.search(row["rev_comment"])
     if src:
         t = clean_thread_name(src.group(1)).lower()
         if t in threadidx:
+            rev_id = int(row['rev_id'])
             print "MATCH FOUND:", row["rev_id"], t
-            threads[threadidx[t]]['revisions'].append(row['rev_id'])
+            threads[threadidx[t]]['revisions'].append(rev_id)
+            try:
+                threads[threadidx[t]]['article_sections'] += revisions_sec[rev_id]
+            except:
+                sys.stderr.write('WARNING: revision %s could not be found in the correspondance list of revisions/sections\n' % rev_id)
             threads[threadidx[t]]['match'] += 1
+
 
 # Look for article sections within thread names
 sections = {}
