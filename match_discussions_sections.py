@@ -45,6 +45,7 @@ re_abstract = re.compile(r'(^|\W)(intro(duction)?|abstract|lead|summar(y|ies)|pr
 clean_thread_name = lambda t: unescape_html(t).replace('_', ' ').strip('"[]()«» !?~<>.').strip("'")
 re_clean_lf = re.compile(r'\s*<LF>\s*', re.I)
 re_clean_text = re.compile(r'[^\w\d]+')
+re_clean_spec_chars = re.compile(r'[^\w\d\s]')
 clean_text = lambda t: re_clean_text.sub(' ', re_clean_lf.sub('', unescape_html(t))).lower().strip()
 re_text_splitter = re.compile(r"[^\w\d']+")
 is_null_col = lambda x: not x or x in ["", "0", "-1"]
@@ -123,6 +124,13 @@ for section in section_titles:
     if s not in sections:
         sections[s] = section
     allsections += " | " + s
+    if len(s) > 5:
+        for t in threads:
+            re_match_s = re.compile(r"%s" % re_clean_spec_chars.sub(".", s))
+            if len(re_match_s.findall(t['fulltext'])) > t['nb_messages']:
+                print "MATCH maybe FOUND:", t['name'], "/", section
+                t['article_sections'].append(section)
+                t['match'] += 1
 for thread in threadidx:
     if thread in sections:
         print "MATCH FOUND:", thread, "/", sections[thread]
@@ -134,7 +142,8 @@ for thread in threadidx:
             if section in thread and 3 < len(section) and (n_words > 1 or 10 * n_words > len(re_text_splitter.split(thread))):
                 print "MATCH probably FOUND:", thread, "/", sections[section]
                 for test in threads[threadidx[thread]]['article_sections']:
-                    if test in clean_thread_name(section).lower():
+                    tmps = clean_thread_name(section).lower()
+                    if test in tmps and test != tmps:
                         print " -> probably better than match with « %s », removing it" % test
                         threads[threadidx[thread]]['article_sections'].remove(test)
                         threads[threadidx[thread]]['match'] -= 1
