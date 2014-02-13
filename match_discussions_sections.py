@@ -127,7 +127,7 @@ for section in section_titles:
     if len(s) > 5:
         for t in threads:
             re_match_s = re.compile(r"%s" % re_clean_spec_chars.sub(".", s))
-            if len(re_match_s.findall(t['fulltext'])) > t['nb_messages']:
+            if 2*len(re_match_s.findall(t['fulltext'])) > t['nb_messages']:
                 print "MATCH maybe FOUND:", t['name'], "/", section
                 t['article_sections'].append(section)
                 t['match'] += 1
