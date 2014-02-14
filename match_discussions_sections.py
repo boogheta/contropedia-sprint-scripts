@@ -18,6 +18,8 @@ try:
         revisions = list(csv.DictReader(csvf, delimiter="\t"))
     with open('sections.tsv') as csvf:
         section_titles = csvf.read().split('\n')
+    with open('threads_links.tsv') as csvf:
+        links = list(csv.DictReader(csvf, delimiter="\t"))
     with open('threads_metrics.tsv') as csvf:
         metrics = list(csv.DictReader(csvf, delimiter="\t"))
     with open('revisions_sections.tsv') as csvf:
@@ -45,7 +47,7 @@ re_entities = re.compile(r'&([^;]+);')
 unescape_html = lambda t: clean_blanks(re_entities.sub(lambda x: unichr(int(x.group(1)[1:])) if x.group(1).startswith('#') else unichr(htmlentitydefs.name2codepoint[x.group(1)]), safe_utf8_decode(t)).encode('utf-8'))
 re_talk = re.compile(r'\[\[Talk:.*#([^\|]+)\|?.*\]\]')
 re_abstract = re.compile(r'(^|\W)(intro(duction)?|abstract|lead|summar(y|ies)|preamble|headers?)(\W|$)', re.I)
-clean_thread_name = lambda t: unescape_html(t).replace('_', ' ').strip('"[]()«» !?~<>.').strip("'")
+clean_thread_name = lambda t: unescape_html(t).replace('_', ' ').strip('"[]()«»!?~<>.= ').strip("'")
 re_clean_lf = re.compile(r'\s*<LF>\s*', re.I)
 re_clean_text = re.compile(r'[^\w\d]+')
 re_clean_spec_chars = re.compile(r'[^\w\d\s]')
@@ -59,10 +61,10 @@ threads = []
 curthread = ""
 threadidx = {}
 for row in discussions:
-    if not row['thread']:
+    if not row['thread_title']:
         continue
     idx = len(threads)
-    th = clean_thread_name(row['thread'])
+    th = clean_thread_name(row['thread_title'])
     if th != curthread:
         curthread = th
         if thread:
@@ -98,11 +100,20 @@ for row in discussions:
     thread['nb_messages'] += 1
     thread['messages'].append(row)
     thread['fulltext'] += " " + clean_text(row["text"])
-threads.append(thread)
+if thread:
+    threads.append(thread)
+
+# Complete threads with their permalinks
+for row in links:
+    t = clean_thread_name(row['thread_title']).lower()
+    if t in threadidx:
+        threads[threadidx[t]]['permalink'] = "http://en.wikipedia.org/wiki/%s" % row['talk_page']
+    else:
+        sys.stderr.write("ERROR: could not match one thread from metrics: %s\n" % t)
 
 # Complete threads with David's precomputed metrics
 for row in metrics:
-    t = clean_thread_name(row['thread']).lower()
+    t = clean_thread_name(row['thread_title']).lower()
     if t in threadidx:
         for f in ["users_hindex", "max_depth", "tree_hindex", "chains_num", "chains_comments"]:
             threads[threadidx[t]][f] = int(row[f])
@@ -194,7 +205,7 @@ with open('threads_matched.csv', 'w') as csvf:
     for t in threads:
         if not t['nb_users']*t['nb_messages']:
             continue
-        data = ["", t['name'], t['max_depth'], t['date_min'], t['date_max'], t['nb_users'], t['nb_messages'], "http://en.wikipedia.org/wiki/..."]
+        data = ["", t['name'], t['max_depth'], t['date_min'], t['date_max'], t['nb_users'], t['nb_messages'], ""]
         if len(t['article_sections']):
             for s in t['article_sections']:
                 data[0] = s

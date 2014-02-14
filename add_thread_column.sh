@@ -10,7 +10,7 @@ cat "$1"        |
       s=$(echo "$l" | perl -pe 's/^.*\t=+([^\t].*?)=+$/\1/')
     fi
     if ! $headdone; then
-      echo -e "$l\tthread"
+      echo -e "$l\tthread_title"
       headdone=true
     else
       echo -e "$l\t$s"

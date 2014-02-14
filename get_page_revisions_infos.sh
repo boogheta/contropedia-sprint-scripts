@@ -1,30 +1,104 @@
 #!/bin/bash
 
-mkdir -p data
 page=$(echo $1 | sed 's/ /_/g')
+datadir="data/$page"
+mkdir -p "$datadir/.cache"
 
-# Collect data from the Wikipedia SQL DB on the wikitools machine
-if [ ! -d "data/$page" ] || [ ! -z $2 ]; then
-  scp -r "wikitools:~/data/$page" data/
+function escapeit {
+  perl -e 'use URI::Escape; print uri_escape shift();print"\n"' $1 |
+   sed 's/\s/_/g';
+}
+function download {
+  cache="$datadir/.cache/$(escapeit $1)"
+  if [ ! -s "$cache" ]; then
+    echo "DOWNLOAD $1" >&2
+    touch "$cache"
+    ct=0
+    while [ $ct -lt 3 ]; do
+      curl -f -s -L "$1" > "$cache.tmp"
+      if [ -s "$cache.tmp" ]; then
+        mv "$cache.tmp" "$cache"
+        break
+      fi
+    done
+  fi
+  cat "$cache"
+}
+
+# Download the list of all revisions of the page from the API
+rootapiurl="https://en.wikipedia.org/w/api.php?action"
+revs_url="$rootapiurl=query&prop=revisions&titles=$page&rvprop=ids|user|timestamp|comment|sha1&rvlimit=500&rvdir=newer&format=xml&rvstartid="
+run=true
+nextid=0
+echo -e "rev_id\trev_user\trev_timestamp\trev_hash\trev_comment" > "$datadir/revisions.tsv"
+# cleanup cache for latest revision list
+lastid=0
+for file in $(ls $datadir/.cache/*startid%3D* 2> /dev/null | grep -v ".tmp$"); do
+  revid=$(echo $file | sed 's/^.*startid%3D//')
+  if [ $revid -gt $lastid ]; then
+    lastid=$revid
+  fi
+done
+if [ ! -z "$lastid" ]; then
+  rm -f "$datadir/.cache/"$(escapeit "$revs_url$lastid")
 fi
-if [ ! -s "data/$page/revisions.tsv" ]; then
-  echo "No list of revisions found for $page"
-  echo "Did you run get_revisions from wikitools yet?"
-  exit 1
+rm -f "$datadir/revisions.tsv"
+while $run; do
+  download "$revs_url$nextid" | sed 's/<rev/\n<rev/g' > "$datadir/revisions.tmp"
+  if grep '<revisions rvcontinue="' "$datadir/revisions.tmp" > /dev/null; then
+    nextid=$(grep '<revisions rvcontinue="' "$datadir/revisions.tmp" | sed 's/^.*rvcontinue="\([0-9]\+\)".*$/\1/')
+  else
+    run=false
+  fi
+  grep '<rev revid="' "$datadir/revisions.tmp"   |
+    sed 's/^.*revid="//'                           |
+    sed 's/" \/>$//'                               |
+    sed 's/" parentid.*user="/\t/'                 |
+    sed 's/" anon="[^"]*"/"/'                      |
+    sed 's/" [^"]\+"/\t/g' >> "$datadir/revisions.tsv"
+  rm "$datadir/revisions.tmp"
+done
+
+pageid=$(head -n 2 "$datadir/revisions.tsv" | tail -n 1 | awk -F "\t" '{print $2}')
+revisions_ids=$(cat "$datadir/revisions.tsv" | grep -v -P "^rev_id\t" | awk -F "\t" '{print $1}' | tr '\n' ' ' | sed 's/ $//')
+revisions_list=$(echo "$revisions_ids" | tr ' ' ',')
+
+# Download list of sections in each revision of the page from the API
+rm -f "$datadir/sections.tmp"
+for revid in $revisions_ids; do
+  download "https://en.wikipedia.org/w/api.php?action=parse&oldid=$revid&prop=sections|revid&format=json"   |
+    sed 's/","number/\n/g'     |
+    grep -v ']}}'              |
+    sed 's/^.*"line":"//'      |
+    sed 's/^\(.*\)$/\L\1/' >> "$datadir/sections.tmp"
+done
+sort -u "$datadir/sections.tmp" > "$datadir/sections.tsv"
+rm "$datadir/sections.tmp"
+
+if [ ! -s "$datadir/revisions_sections.tsv" ]; then
+  echo "SELECT revision_id, section_name FROM element_edit WHERE revision_id IN ($revisions_list) GROUP BY revision_id, section_name" | mysql -u root -p contropedia > "$datadir/revisions_sections.tsv"
 fi
-
-revisions_ids=$(cat "data/$page/revisions.tsv" | grep -v -P "^rev_id\t" | awk -F "\t" '{print $1}' | tr '\n' ',' | sed 's/,$//')
-
-echo "SELECT revision_id, section_name FROM element_edit WHERE revision_id IN ($revisions_ids) GROUP BY revision_id, section_name" | mysql -u root -p contropedia > "data/$page/revisions_sections.tsv"
-
-pageid=$(head -n 2 "data/$page/revisions.tsv" | tail -n 1 | awk -F "\t" '{print $2}')
-mkdir -p "data/$page/versions/" "data/$page/screenshots/"
 
 # Extract discussions from David's data
-#head -n 1 data/discussions_compact_text_sections.csv | iconv -f "iso8859-1" -t "utf8" > "data/$page/discussions.tsv"
-#grep -P "^([^\t]+\t){5}$pageid\t" data/discussions_compact_text_sections.csv | iconv -f "iso8859-1" -t "utf8" >> "data/$page/discussions.tsv"
-if ! head -n 1 "data/$page/discussions.tsv" | grep -P "\tthread$" > /dev/null; then
-  ./add_thread_column.sh "data/$page/discussions.tsv" > "data/$page/discussions.tsv.new"
-  mv -f "data/$page/discussions.tsv.new" "data/$page/discussions.tsv"
+head -n 1 data/top20_discussions_compact_text.csv | iconv -f "iso8859-1" -t "utf8" > "$datadir/discussions.tsv"
+grep -P "^([^\t]+\t){5}$pageid\t" data/top20_discussions_compact_text.csv | iconv -f "iso8859-1" -t "utf8" >> "$datadir/discussions.tsv"
+#Add missing thread_title column
+if ! head -n 1 "$datadir/discussions.tsv" | grep -P "\tthread_title$" > /dev/null; then
+  ./add_thread_column.sh "$datadir/discussions.tsv" > "$datadir/discussions.tsv.new"
+  mv -f "$datadir/discussions.tsv.new" "$datadir/discussions.tsv"
 fi
+
+# Extract discussions metrics from David's data
+head -n 1 data/top20_thread_metrics_tree_string.csv | iconv -f "iso8859-1" -t "utf8" > "$datadir/threads_metrics.tsv"
+grep -P "^$pageid\t" data/top20_thread_metrics_tree_string.csv | iconv -f "iso8859-1" -t "utf8" >> "$datadir/threads_metrics.tsv"
+
+# Extract thread permalinks from David's data
+head -n 1 data/top20_thread_titles.csv | iconv -f "iso8859-1" -t "utf8" > "$datadir/threads_links.tsv"
+grep -P "^$pageid\t" data/top20_thread_titles.csv | iconv -f "iso8859-1" -t "utf8" >> "$datadir/threads_links.tsv"
+
+# Match discussions with article sections and assemble all data into $datadir/threads_matched.csv
+python match_discussions_sections.py "$page"
+
+# Collect HTML and screenshots for all revisions webpages 
+# bash get_page_revisions.sh $page
 

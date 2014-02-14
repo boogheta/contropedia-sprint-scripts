@@ -1,6 +1,7 @@
+data/extra
+data/*/.cache
 data/*/screenshots
 data/*/versions
-data/extra
 *.avi
 phantomjs-*
-replica.my.cnf
+*.tmp

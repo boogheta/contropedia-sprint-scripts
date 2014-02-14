@@ -2,8 +2,8 @@
 
 PATH=$PATH:$(pwd)/phantomjs-1.9.7-linux-i686/bin
 
-mkdir -p data
 page=$(echo $1 | sed 's/ /_/g')
+mkdir -p "data/$page/versions/" "data/$page/screenshots/"
 
 baseurl="https://en.wikipedia.org/w/index.php?title=$page&oldid="
 # Download text and screenshots for each revisions
