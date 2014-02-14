@@ -72,7 +72,7 @@ for row in discussions:
             threads.append(thread)
         thread = {"index": idx,
                   "name": th,
-                  "rawname": row['thread_title'].strip('=[]'),
+                  "rawname": row['thread_title'].strip('=[] '),
                   "date_min": "",
                   "users": [],
                   "nb_users": 0,
