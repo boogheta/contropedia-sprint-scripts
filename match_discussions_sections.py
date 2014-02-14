@@ -3,7 +3,7 @@
 
 import sys, os, re
 import csv, json
-import htmlentitydefs
+import urllib, htmlentitydefs
 from time import mktime, strptime
 from datetime import date, datetime
 from locale import setlocale, LC_ALL
@@ -110,7 +110,7 @@ if thread:
 for row in links:
     t = clean_thread_name(row['thread_title']).lower()
     if t in threadidx:
-        threads[threadidx[t]]['permalink'] = "http://en.wikipedia.org/wiki/%s#%s" % (row['talk_page'], threads[threadidx[t]]['rawname'].replace(' ', '_'))
+        threads[threadidx[t]]['permalink'] = "http://en.wikipedia.org/wiki/%s#%s" % (row['talk_page'], urllib.quote(threads[threadidx[t]]['rawname'].replace(' ', '_')).replace('%', '.'))
     else:
         sys.stderr.write("ERROR: could not match one thread from links: %s\n" % t)
 
@@ -208,7 +208,7 @@ with open('threads_matched.csv', 'w') as csvf:
     for t in threads:
         if not t['nb_users']*t['nb_messages']:
             continue
-        data = [page_title, "", t['rawname'], t['max_depth'], t['date_min'], t['date_max'], t['nb_users'], t['nb_messages'], t["users_hindex"], t["max_depth"], t["tree_hindex"], t["chains_num"], t["chains_comments"], t['permalink']]
+        data = [page_title, "", t['rawname'], "TBD", t['date_min'], t['date_max'], t['nb_users'], t['nb_messages'], t["users_hindex"], t["max_depth"], t["tree_hindex"], t["chains_num"], t["chains_comments"], t['permalink']]
         if len(t['article_sections']):
             for s in t['article_sections']:
                 data[1] = s
