@@ -28,9 +28,6 @@ function download {
 # Download the list of all revisions of the page from the API
 rootapiurl="https://en.wikipedia.org/w/api.php?action"
 revs_url="$rootapiurl=query&prop=revisions&titles=$page&rvprop=ids|user|timestamp|comment|sha1&rvlimit=500&rvdir=newer&format=xml&rvstartid="
-run=true
-nextid=0
-echo -e "rev_id\trev_user\trev_timestamp\trev_hash\trev_comment" > "$datadir/revisions.tsv"
 # cleanup cache for latest revision list
 lastid=0
 for file in $(ls $datadir/.cache/*startid%3D* 2> /dev/null | grep -v ".tmp$"); do
@@ -39,10 +36,11 @@ for file in $(ls $datadir/.cache/*startid%3D* 2> /dev/null | grep -v ".tmp$"); d
     lastid=$revid
   fi
 done
-if [ ! -z "$lastid" ]; then
-  rm -f "$datadir/.cache/"$(escapeit "$revs_url$lastid")
-fi
-rm -f "$datadir/revisions.tsv"
+rm -f "$datadir/.cache/"$(escapeit "$revs_url$lastid")
+run=true
+nextid=0
+pageid=
+echo -e "rev_id\trev_user\trev_timestamp\trev_hash\trev_comment" > "$datadir/revisions.tsv"
 while $run; do
   download "$revs_url$nextid" | sed 's/<rev/\n<rev/g' > "$datadir/revisions.tmp"
   if grep '<revisions rvcontinue="' "$datadir/revisions.tmp" > /dev/null; then
@@ -50,30 +48,34 @@ while $run; do
   else
     run=false
   fi
-  grep '<rev revid="' "$datadir/revisions.tmp"   |
-    sed 's/^.*revid="//'                           |
-    sed 's/" \/>$//'                               |
-    sed 's/" parentid.*user="/\t/'                 |
-    sed 's/" anon="[^"]*"/"/'                      |
+  grep '<rev revid="' "$datadir/revisions.tmp"  |
+    sed 's/^.*revid="//'                        |
+    sed 's/" \/>$//'                            |
+    sed 's/" parentid.*user="/\t/'              |
+    sed 's/" anon="[^"]*"/"/'                   |
     sed 's/" [^"]\+"/\t/g' >> "$datadir/revisions.tsv"
+  if [ -z "$pageid" ]; then
+    pageid=$(grep '<page pageid="' "$datadir/revisions.tmp" | head -n 1 | sed 's/^.*pageid="\([0-9]\+\)".*$/\1/')
+  fi
   rm "$datadir/revisions.tmp"
 done
 
-pageid=$(head -n 2 "$datadir/revisions.tsv" | tail -n 1 | awk -F "\t" '{print $2}')
 revisions_ids=$(cat "$datadir/revisions.tsv" | grep -v -P "^rev_id\t" | awk -F "\t" '{print $1}' | tr '\n' ' ' | sed 's/ $//')
 revisions_list=$(echo "$revisions_ids" | tr ' ' ',')
 
 # Download list of sections in each revision of the page from the API
-rm -f "$datadir/sections.tmp"
-for revid in $revisions_ids; do
-  download "https://en.wikipedia.org/w/api.php?action=parse&oldid=$revid&prop=sections|revid&format=json"   |
-    sed 's/","number/\n/g'     |
-    grep -v ']}}'              |
-    sed 's/^.*"line":"//'      |
-    sed 's/^\(.*\)$/\L\1/' >> "$datadir/sections.tmp"
-done
-sort -u "$datadir/sections.tmp" > "$datadir/sections.tsv"
-rm "$datadir/sections.tmp"
+if [ ! -s "$datadir/sections.tsv" ]; then
+  rm -f "$datadir/sections.tmp"
+  for revid in $revisions_ids; do
+    download "https://en.wikipedia.org/w/api.php?action=parse&oldid=$revid&prop=sections|revid&format=json"   |
+      sed 's/","number/\n/g'     |
+      grep -v ']}}'              |
+      sed 's/^.*"line":"//'      |
+      sed 's/^\(.*\)$/\L\1/' >> "$datadir/sections.tmp"
+  done
+  sort -u "$datadir/sections.tmp" > "$datadir/sections.tsv"
+  rm "$datadir/sections.tmp"
+fi
 
 if [ ! -s "$datadir/revisions_sections.tsv" ]; then
   echo "SELECT revision_id, section_name FROM element_edit WHERE revision_id IN ($revisions_list) GROUP BY revision_id, section_name" | mysql -u root -p contropedia > "$datadir/revisions_sections.tsv"

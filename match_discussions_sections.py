@@ -10,7 +10,8 @@ from locale import setlocale, LC_ALL
 setlocale(LC_ALL, 'en_GB.utf8')
 
 try:
-    datadir = "data/%s" % sys.argv[1]
+    page_title = sys.argv[1]
+    datadir = "data/%s" % page_title
     os.chdir(datadir)
     with open('discussions.tsv') as csvf:
         discussions = list(csv.DictReader(csvf, delimiter="\t"))
@@ -71,6 +72,7 @@ for row in discussions:
             threads.append(thread)
         thread = {"index": idx,
                   "name": th,
+                  "rawname": row['thread_title'].strip('=[]'),
                   "date_min": "",
                   "users": [],
                   "nb_users": 0,
@@ -82,6 +84,7 @@ for row in discussions:
                   "chains_num": 0,
                   "chains_comments": 0,
                   "fulltext": "",
+                  "permalink": "",
                   "revisions": [],
                   "article_sections": [],
                   "match": 0}
@@ -107,9 +110,9 @@ if thread:
 for row in links:
     t = clean_thread_name(row['thread_title']).lower()
     if t in threadidx:
-        threads[threadidx[t]]['permalink'] = "http://en.wikipedia.org/wiki/%s" % row['talk_page']
+        threads[threadidx[t]]['permalink'] = "http://en.wikipedia.org/wiki/%s#%s" % (row['talk_page'], threads[threadidx[t]]['rawname'].replace(' ', '_'))
     else:
-        sys.stderr.write("ERROR: could not match one thread from metrics: %s\n" % t)
+        sys.stderr.write("ERROR: could not match one thread from links: %s\n" % t)
 
 # Complete threads with David's precomputed metrics
 for row in metrics:
@@ -199,16 +202,16 @@ with open('threads.json', 'w') as jsonf:
     json.dump(threads, jsonf, ensure_ascii=False)
 
 make_csv_line = lambda arr: ",".join(['"'+str(a).replace('"', '""')+'"' if ',' in str(a) else str(a) for a in arr])
-headers = ["section", "thread", "controversiality", "min_date", "max_date", "nb_users", "nb_messages", "permalink"]
+headers = ["article_title", "section", "thread", "controversiality", "min_date", "max_date", "nb_users", "nb_messages", "users_hindex", "max_depth", "tree_hindex", "chains_num", "chains_comments", "permalink"]
 with open('threads_matched.csv', 'w') as csvf:
     print >> csvf, make_csv_line(headers)
     for t in threads:
         if not t['nb_users']*t['nb_messages']:
             continue
-        data = ["", t['name'], t['max_depth'], t['date_min'], t['date_max'], t['nb_users'], t['nb_messages'], ""]
+        data = [page_title, "", t['rawname'], t['max_depth'], t['date_min'], t['date_max'], t['nb_users'], t['nb_messages'], t["users_hindex"], t["max_depth"], t["tree_hindex"], t["chains_num"], t["chains_comments"], t['permalink']]
         if len(t['article_sections']):
             for s in t['article_sections']:
-                data[0] = s
+                data[1] = s
                 print >> csvf, make_csv_line(data)
         else:
             print >> csvf, make_csv_line(data)
