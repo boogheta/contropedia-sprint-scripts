@@ -1,5 +1,7 @@
 from flask import Flask
 from flask import render_template
+from flask import request
+from flask import jsonify
 
 # Creating the application
 app = Flask(__name__)
@@ -8,6 +10,12 @@ app = Flask(__name__)
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/graph', methods=['POST'])
+def graph():
+    url = request.form['url']
+    token = request.form.get('token', None)
+    return jsonify(**{'hello': 'world'})
 
 
 # Running server
