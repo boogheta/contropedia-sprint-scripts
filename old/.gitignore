@@ -1,0 +1,14 @@
+data/extra
+data/*/.cache
+data/*/screenshots
+data/*/versions
+*.avi
+phantomjs-*
+*.tmp
+threads_links.tsv
+threads_titles.tsv
+threads_metrics.tsv
+sections.tsv
+revisions.tsv
+discussions.tsv
+threads.json
