@@ -1,0 +1,15 @@
+#top, #bottom {
+  width: 100%;
+}
+
+#url {
+  width: 100%;
+}
+
+#graph {
+  width: 100%;
+  height: 700px;
+  border: 1px solid black;
+  padding: 0;
+  margin: 0;
+}

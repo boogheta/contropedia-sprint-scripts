@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Contropedia</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/app.css') }}">
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="top">
+        <input id="url" type="text" placeholder="Write url here..." />
+      </div>
+      <div id="bottom">
+        <div id="graph"></div>
+      </div>
+    </div>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/sigma.min.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </body>
+</html>
