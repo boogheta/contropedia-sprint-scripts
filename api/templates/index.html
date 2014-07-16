@@ -2,18 +2,37 @@
 <html>
   <head>
     <title>Contropedia</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap-theme.min.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/app.css') }}">
   </head>
   <body>
-    <div id="wrapper">
+
+    <!-- Document header -->
+    <div class="navbar navbar-default" role="navigation">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">Contropedia</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="wrapper" class="container-fluid">
       <div id="top">
-        <input id="url" type="text" placeholder="Write url here..." />
+        <input id="url" class="form-control" type="text" placeholder="Write url here..." />
       </div>
       <div id="bottom">
         <div id="graph"></div>
       </div>
     </div>
     <script type="text/javascript" src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/sigma.min.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/sigma.layout.forceAtlas2.min.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/app.js') }}"></script>

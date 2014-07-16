@@ -14,6 +14,8 @@
     }
   };
 
+  var edgeId = 0;
+
   // Event listeners
   //-----------------
 
@@ -35,7 +37,19 @@
     if (app.token)
       data.token = app.token;
 
-    $.post('/graph', data, onGraphReception);
+    $.post('/graph', data, function(response) {
+      if (response.error) {
+        console.log(response.error, response.details);
+        return;
+      }
+
+      // Setting token if this is the first API call
+      if (!app.token)
+        app.token = response.token;
+
+      // Loading graph
+      loadGraph(response.graph);
+    });
 
     // Blurring input
     $(this).blur();
@@ -51,9 +65,7 @@
   //-----------
 
   // When the graph is received from API
-  function onGraphReception(response) {
-    if (!app.token)
-      app.token = response.token;
+  function loadGraph(graph) {
 
     // Instanciating sigma for the first time
     if (!app.sigma.instance) {
@@ -69,20 +81,30 @@
     var s = app.sigma.instance;
 
     // Adding nodes and edges
-    response.graph.nodes.forEach(function(n) {
+    graph.nodes.forEach(function(n) {
 
       // Not adding if node already exists
       if (s.graph.nodes(n.id) !== undefined)
         return;
 
+      // Casting to string id
+      n.id += '';
+
       n.size = n.size || 1;
       s.graph.addNode(n);
     });
 
-    response.graph.edges.forEach(function(e) {
+    graph.edges.forEach(function(e) {
 
-      // Not adding if edge already exists
-      if (s.graph.edges(e.id) !== undefined)
+      // Attributing an arbitrary id
+      e.id = ''+ (edgeId++);
+
+      // Casting to string source and target
+      e.source += '';
+      e.target += '';
+
+      // Checking existence of similar edge
+      if (s.graph.hasSimilarEdge(e.source, e.target))
         return;
 
       s.graph.addEdge(e);
@@ -91,6 +113,12 @@
     // Refreshing
     s.refresh();
   }
+
+  // Sigma's extensions
+  //--------------------
+  sigma.classes.graph.addMethod('hasSimilarEdge', function(s, t) {
+    return !!this.allNeighborsIndex[s][t];
+  });
 
   // Exporting to window for convenience
   this.app = app;
