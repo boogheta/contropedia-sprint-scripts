@@ -4,7 +4,7 @@ import uuid, re, json, os
 import requests
 import networkx
 from networkx.readwrite import json_graph
-from helpers import add_network_node, add_network_edge
+from helpers import add_network_node, add_network_edge, chunkize, format_edges
 
 # TODO
 # cache results of one page with timestamp
@@ -14,15 +14,13 @@ from helpers import add_network_node, add_network_edge
 #  - change to filter on out_degree instead ?
 #  - add filter on controversiality ?
 
-chunkize = lambda a, n: [a[i:i+n] for i in xrange(0, len(a), n)]
-
 class WikipageNetwork(object):
 
     regex_links = re.compile(r'href="/wiki/([^"]+)"')
     regex_anchors = re.compile(r'#.+$')
     link_filters = ['File', 'User', 'Category', 'Help', 'Portal', 'Talk',
-        'Wikipedia', 'Template', 'Special', 'Draft', 'wikipedia',
-        'Category', 'Book', 'User']
+        'Wikipedia', 'Template', 'Special', 'Draft', 'Wikipedia',
+        'Category', 'Book', 'User', 'Aide', 'Fichier']
 
     def __init__(self, token=None, title="Global_warming", language="en", cache_redirs={}):
         if not os.path.isdir("cache"):
@@ -31,11 +29,11 @@ class WikipageNetwork(object):
         self.index_pages = {}
         self.contro_pages = {}
         self.done_pages = []
+        self.curid = 0
         if token:
             self.token = token
             self.reload_network()
         else:
-            self.curid = 0
             self.token = uuid.uuid1()
             self.init_network(self.clean_page(title), language)
 
@@ -66,14 +64,14 @@ class WikipageNetwork(object):
     def get_jsonfile(self):
         return os.path.join("cache", "%s-metas.json" % self.token)
 
-    def reload_network(self, ):
+    def reload_network(self):
         with open(self.get_jsonfile()) as f:
             data = json.load(f)
         self.init_network(data["title"], data["language"])
         self.curid = data["lastid"] + 1
         self.done_pages = data["pages"]
         self.index_pages = data["index"]
-        self.contro_pages = data["index"]
+        self.contro_pages = data["contro"]
         with open(self.networkfile) as f:
             self.network = json_graph.node_link_graph(json.load(f), True)
 
@@ -96,10 +94,10 @@ class WikipageNetwork(object):
             contro = 0
             #contro = sqlite.get value
             self.contro_pages[page] = contro
-            add_network_node(self.network, self.curid, extrafields)
+            add_network_node(self.network, self.curid, {"label": page, "controversiality": self.contro_pages[page]})
             self.index_pages[page] = self.curid
             self.curid += 1
-            return self.curid
+            return self.curid - 1
         return self.index_pages[page]
 
     def add_edge(self, frompage, topage):
@@ -108,15 +106,17 @@ class WikipageNetwork(object):
         add_network_edge(self.network, idf, idt)
 
     def return_filtered_network(self):
-        extrafields = [('label', self.index_pages), ('co', self.contro_pages)]
         filtered_net = networkx.Graph()
+        add_network_node(filtered_net, 0, {'label': self.title, 'co': self.contro_pages[self.title]})
         for nfrom, nto in self.network.edges_iter():
             if self.network.has_edge(nto, nfrom):
-                add_network_node(filtered_net, nto, extrafields)
-                add_network_node(filtered_net, nfrom, extrafields)
+                node = self.network.node[nto]
+                add_network_node(filtered_net, nto, {"label": node['label'], "co": node['controversiality']})
+                node = self.network.node[nfrom]
+                add_network_node(filtered_net, nfrom, {"label": node['label'], "co": node['controversiality']})
                 add_network_edge(filtered_net, nfrom, nto)
         result = json_graph.node_link_data(filtered_net)
-        return {"nodes": result["nodes"], "edges": result["links"]}
+        return {"nodes": result["nodes"], "edges": format_edges(filtered_net)}
 
     def filter_link(self, link):
         if link == u"Main_Page":
@@ -144,9 +144,7 @@ class WikipageNetwork(object):
             temp = requests.post(self.root_api_url, params=redir_api_args)
             data = json.loads(temp.text)
             if "normalized" in data["query"]:
-                print pages
                 for redir in data["query"]["normalized"]:
-                    print redir
                     pages.remove(redir["from"])
                     pages.append(redir["to"])
                     self.cache_redirs[redir["from"]] = redir["to"]
