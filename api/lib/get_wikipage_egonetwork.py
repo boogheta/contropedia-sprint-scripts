@@ -113,7 +113,7 @@ class WikipageNetwork(object):
                 add_network_node(filtered_net, nto, extrafields)
                 add_network_node(filtered_net, nfrom, extrafields)
                 add_network_edge(filtered_net, nfrom, nto)
-        return filtered_net
+        return filtered_net.node_link_data
 
     def filter_link(self, link):
         if link == u"Main_Page":

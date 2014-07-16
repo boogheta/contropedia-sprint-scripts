@@ -29,10 +29,9 @@ def graph():
         net = WikipageNetwork(title=title, language=lang, cache_redirs=cache_wikipedia_redirs)
     try:
         result = net.add_page(title)
-    except Exception as a:
-        result = {'error': "Unable to process this page's network", 'details': '%s: %s' % (type(e), e)})
-    finally:
-        return jsonify(result)
+    except Exception as e:
+        result = {'error': "Unable to process this page's network", 'details': '%s: %s' % (type(e), e)}
+    return jsonify(**result)
 
 # Running server
 if __name__ == '__main__':

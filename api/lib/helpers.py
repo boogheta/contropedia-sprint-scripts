@@ -1,4 +1,5 @@
 def parse_wikipedia_url(url):
+    assert('wikipedia.org/wiki/' in url)
     lang = url.split('//')[-1].split('.')[0]
     title = url.split('/')[-1]
     return lang, title
