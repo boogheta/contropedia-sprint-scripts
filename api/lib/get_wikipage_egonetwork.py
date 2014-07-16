@@ -4,11 +4,15 @@ import uuid, re, json, os
 import requests
 import networkx
 from networkx.readwrite import json_graph
+from helpers import add_network_node, add_network_edge
 
 # TODO
 # cache results of one page with timestamp
-# return filtered network
 # add read controversiality in sqlite)
+# filter network:
+#  - currently only nodes implied in reciprocal links are returned
+#  - change to filter on out_degree instead ?
+#  - add filter on controversiality ?
 
 chunkize = lambda a, n: [a[i:i+n] for i in xrange(0, len(a), n)]
 
@@ -26,6 +30,7 @@ class WikipageNetwork(object):
         self.curid = 0
         self.cache_redirs = cache_redirs
         self.index_pages = {}
+        self.contro_pages = {}
         self.done_pages = []
         if token:
             self.token = token
@@ -41,7 +46,10 @@ class WikipageNetwork(object):
         self.get_inlinks(page)
         self.done_pages.append(page)
         self.save()
-        return self.return_filtered_network()
+        return {
+            'token': self.token,
+            'graph': self.return_filtered_network()
+        }
 
     def clean_page(self, page):
         page = self.regex_anchors.sub('', page)
@@ -64,6 +72,7 @@ class WikipageNetwork(object):
         self.init_network(data["title"], data["language"])
         self.done_pages = data["pages"]
         self.index_pages = data["index"]
+        self.contro_pages = data["index"]
         with open(self.networkfile) as f:
             self.network = json_graph.node_link_graph(json.load(f), True)
 
@@ -73,16 +82,19 @@ class WikipageNetwork(object):
                 "title": self.title,
                 "language": self.language,
                 "pages": self.done_pages,
-                "index": self.index_pages
+                "index": self.index_pages,
+                "contro": self.contro_pages
             }, f)
         with open(self.networkfile, "w") as f:
             json.dump(json_graph.node_link_data(self.network), f)
 
     def add_node(self, page):
-        if page not in self.network.nodes():
+        extrafields = [('label', self.index_pages), ('controversiality', self.contro_pages)]
+        if page not in self.index_pages:
             contro = 0
             #contro = sqlite.get value
-            self.network.add_node(self.curid, label=page, controversiality=contro)
+            self.contro_pages[page] = contro
+            add_network_node(self.network, self.curid, extrafields)
             self.index_pages[page] = self.curid
             self.curid += 1
             return self.curid
@@ -91,11 +103,17 @@ class WikipageNetwork(object):
     def add_edge(self, frompage, topage):
         idf = self.add_node(frompage)
         idt = self.add_node(topage)
-        if not self.network.has_edge(idf, idt):
-            self.network.add_edge(idf, idt)
+        add_network_edge(self.network, idf, idt)
 
     def return_filtered_network(self):
-        pass
+        extrafields = [('label', self.index_pages), ('co', self.contro_pages)]
+        filtered_net = networkx.Graph()
+        for nfrom, nto in self.network.edges_iter():
+            if self.network.has_edge(nto, nfrom):
+                add_network_node(filtered_net, nto, extrafields)
+                add_network_node(filtered_net, nfrom, extrafields)
+                add_network_edge(filtered_net, nfrom, nto)
+        return filtered_net
 
     def filter_link(self, link):
         if link == u"Main_Page":
@@ -165,7 +183,7 @@ class WikipageNetwork(object):
 
 if __name__ ==  '__main__':
     net = WikipageNetwork(None, "Global_warming", "en")
-    filtered_netw = net.add_page("Global_warming")
+    filtered_net = net.add_page("Global_warming")
     cache_redirs = net.cache_redirs
     token = net.token
     net2 = WikipageNetwork(token, cache_redirs=cache_redirs)
