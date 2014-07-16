@@ -2,4 +2,3 @@
 flask
 networkx
 requests
-wikitools
