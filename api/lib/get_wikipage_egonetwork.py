@@ -27,7 +27,6 @@ class WikipageNetwork(object):
     def __init__(self, token=None, title="Global_warming", language="en", cache_redirs={}):
         if not os.path.isdir("cache"):
             os.makedirs("cache")
-        self.curid = 0
         self.cache_redirs = cache_redirs
         self.index_pages = {}
         self.contro_pages = {}
@@ -36,6 +35,7 @@ class WikipageNetwork(object):
             self.token = token
             self.reload_network()
         else:
+            self.curid = 0
             self.token = uuid.uuid1()
             self.init_network(self.clean_page(title), language)
 
@@ -70,6 +70,7 @@ class WikipageNetwork(object):
         with open(self.get_jsonfile()) as f:
             data = json.load(f)
         self.init_network(data["title"], data["language"])
+        self.curid = data["lastid"] + 1
         self.done_pages = data["pages"]
         self.index_pages = data["index"]
         self.contro_pages = data["index"]
@@ -81,6 +82,7 @@ class WikipageNetwork(object):
             json.dump({
                 "title": self.title,
                 "language": self.language,
+                "lastid": self.curid,
                 "pages": self.done_pages,
                 "index": self.index_pages,
                 "contro": self.contro_pages
