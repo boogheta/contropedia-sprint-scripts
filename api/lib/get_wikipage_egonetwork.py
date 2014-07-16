@@ -65,7 +65,7 @@ class WikipageNetwork(object):
         self.done_pages = data["pages"]
         self.index_pages = data["index"]
         with open(self.networkfile) as f:
-            self.network = json.load(f)
+            self.network = json_graph.node_link_graph(json.load(f), True)
 
     def save(self):
         with open(self.get_jsonfile(), "w") as f:
