@@ -113,7 +113,8 @@ class WikipageNetwork(object):
                 add_network_node(filtered_net, nto, extrafields)
                 add_network_node(filtered_net, nfrom, extrafields)
                 add_network_edge(filtered_net, nfrom, nto)
-        return filtered_net.node_link_data
+        result = json_graph.node_link_data(filtered_net)
+        return {"nodes": result["nodes"], "edges": result["links"]}
 
     def filter_link(self, link):
         if link == u"Main_Page":
