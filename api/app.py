@@ -20,7 +20,7 @@ def graph():
     url = request.form['url']
     token = request.form.get('token', None)
     try:
-        if not token:
+        if not token or 'wikipedia' in url:
             lang, title = parse_wikipedia_url(url)
         else:
             title = url

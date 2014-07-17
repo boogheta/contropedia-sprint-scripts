@@ -15,10 +15,11 @@
         defaultEdgeColor: '#ececec',
         doubleClickEnabled: false,
         minNodeSize: 4,
-        maxNodeSize: 10
+        maxNodeSize: 10,
+        labelThreshold: 5
       },
       forceAtlas2Settings: {
-        gravity: 0.0001,
+        gravity: 0.000001,
         strongGravityMode: true
       }
     }
@@ -171,7 +172,7 @@
     // Adjusting size and color of nodes
     s.graph.nodes().forEach(function(n) {
       n.size = s.graph.degree(n.id, 'out');
-      n.color = app.scale(n.co / app.maxControversiality).hex()
+      n.color = app.scale(Math.log(n.co) / Math.log(app.maxControversiality)).hex()
     });
 
     // Refreshing
@@ -179,6 +180,11 @@
 
     // Starting ForceAtlas
     s.startForceAtlas2(app.sigma.forceAtlas2Settings);
+
+    setTimeout(function() {
+      if (s.isForceAtlas2Running())
+        s.stopForceAtlas2();
+    }, 3000);
   }
 
   // Sigma's extensions
