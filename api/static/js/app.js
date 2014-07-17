@@ -7,9 +7,11 @@
     sigma: {
       instance: null,
       defaultSettings: {
+        maxEdgeSize: 0.1,
         hideEdgesOnMove: true,
         defaultNodeColor: '#ccc',
-        doubleClickEnabled: false
+        doubleClickEnabled: false,
+        minNodeSize: 3
       },
       forceAtlas2Settings: {
         gravity: 0.1,
@@ -148,6 +150,11 @@
         return;
 
       s.graph.addEdge(e);
+    });
+
+    // Adjusting size of nodes
+    s.graph.nodes().forEach(function(n) {
+      n.size = s.graph.degree(n.id, 'out');
     });
 
     // Refreshing
