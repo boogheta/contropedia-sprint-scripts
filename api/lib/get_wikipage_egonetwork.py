@@ -4,11 +4,10 @@ import uuid, re, json, os, time
 import requests
 import networkx
 from networkx.readwrite import json_graph
+from multiprocessing import Process, Manager
 from helpers import add_network_node, add_network_edge, chunkize, format_edges, query_controversiality_db
 
 # TODO
-# - performance:
-#  * run inlinks and outlinks asynchronously in parallel
 # - filter network:
 #  * currently only nodes implied in reciprocal links are returned
 #  * change to filter on out_degree instead ?
@@ -53,10 +52,18 @@ class WikipageNetwork(object):
                 out_links = data["out"]
                 in_links = data["in"]
             else:
-                out_links = self.get_outlinks(page)
-                in_links = self.get_inlinks(page)
+                manager = Manager()
+                procresults = manager.dict()
+                out_links_p = Process(target=self.get_outlinks, args=(page, procresults))
+                in_links_p = Process(target=self.get_inlinks, args=(page, procresults))
+                out_links_p.start()
+                in_links_p.start()
+                out_links_p.join()
+                in_links_p.join()
+                out_links = procresults['out']
+                in_links = procresults['in']
                 with open(page_file, 'w') as f:
-                    json.dump({"in": in_links, "out": out_links}, f)
+                    json.dump(dict(procresults), f)
             for lk in out_links:
                 self.add_edge(page, lk)
             for lk in in_links:
@@ -171,7 +178,7 @@ class WikipageNetwork(object):
                     pages.append(redir["to"])
                     self.cache_redirs[redir["from"]] = redir["to"]
 
-    def get_outlinks(self, page):
+    def get_outlinks(self, page, dictresults):
         out_links = []
         url = "https://%s.wikipedia.org/wiki/%s" % (self.language, page)
         htmlcontent = requests.get(url).text
@@ -181,9 +188,9 @@ class WikipageNetwork(object):
                 continue
             out_links.append(link)
         self.solve_redirects(out_links)
-        return out_links
+        dictresults["out"] = out_links
 
-    def get_inlinks(self, page):
+    def get_inlinks(self, page, dictresults):
         in_links = []
         api_url = "%s&list=backlinks&blredirect&blfilterredir=nonredirects&bllimit=500&bltitle=%s" % (self.root_api_url, page)
         cur_api_url = api_url
@@ -199,7 +206,7 @@ class WikipageNetwork(object):
                 cur_api_url = "%s&blcontinue=%s" % (api_url, data["query-continue"]["backlinks"]["blcontinue"])
             else:
                 cur_api_url = ""
-        return in_links
+        dictresults["in"] = in_links
 
 if __name__ ==  '__main__':
     net = WikipageNetwork(None, "Global_warming", "en")
