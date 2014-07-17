@@ -3,7 +3,7 @@
   <head>
     <title>Contropedia</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap-theme.min.css') }}">
+    <!-- <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap-theme.min.css') }}"> -->
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/app.css') }}">
   </head>
   <body>
@@ -25,7 +25,12 @@
 
     <div id="wrapper" class="container-fluid">
       <div id="top">
-        <input id="url" class="form-control" type="text" placeholder="Write url here..." />
+        <div class="input-group">
+          <input id="url" class="form-control" type="text" placeholder="Write url here..." />
+          <span class="input-group-btn">
+            <button id="go" class="btn btn-default" type="button" data-loading-text="Loading...">Go!</button>
+          </span>
+        </div>
       </div>
       <div id="bottom">
         <div id="graph"></div>
