@@ -23,12 +23,17 @@
   // Event listeners
   //-----------------
 
-  // Enter key on url input
+  // Enter key
   $('#url').keypress(function(e) {
     if (e.which !== 13)
       return;
 
-    var url = $(this).val().trim();
+    $('#go').trigger('click');
+  });
+
+  // Button
+  $('#go').click(function(e) {
+    var url = $('#url').val().trim();
 
     if (!url)
       return;
@@ -56,7 +61,7 @@
     });
 
     // Blurring input
-    $(this).blur();
+    $('#url').blur();
   });
 
   // On node doubleclick
@@ -82,6 +87,14 @@
     e.preventDefault();
   });
 
+  // Loading message
+  $(document).ajaxStart(function() {
+    $('#go').button('loading');
+  });
+
+  $(document).ajaxStop(function() {
+    $('#go').button('reset');
+  });
 
   // Callbacks
   //-----------
