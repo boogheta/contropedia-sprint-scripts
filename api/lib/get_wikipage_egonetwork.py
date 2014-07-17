@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import uuid, re, json, os
+import uuid, re, json, os, time
 import requests
 import networkx
 from networkx.readwrite import json_graph
@@ -8,7 +8,6 @@ from helpers import add_network_node, add_network_edge, chunkize, format_edges, 
 
 # TODO
 # - performance:
-#  * cache results of one page with timestamp
 #  * run inlinks and outlinks asynchronously in parallel
 # - filter network:
 #  * currently only nodes implied in reciprocal links are returned
@@ -22,10 +21,13 @@ class WikipageNetwork(object):
     link_filters = ['File', 'User', 'Category', 'Help', 'Portal', 'Talk',
         'Wikipedia', 'Template', 'Special', 'Draft', 'Wikipedia',
         'Category', 'Book', 'User', 'Aide', 'Fichier']
+    pages_cache = os.path.join("cache", "pages")
 
     def __init__(self, token=None, title="Global_warming", language="en", cache_redirs={}):
         if not os.path.isdir("cache"):
             os.makedirs("cache")
+        if not os.path.isdir(self.pages_cache):
+            os.makedirs(self.pages_cache)
         self.cache_redirs = cache_redirs
         self.index_pages = {}
         self.contro_pages = {}
@@ -42,10 +44,25 @@ class WikipageNetwork(object):
     def add_page(self, page):
         page = self.clean_page(page)
         self.add_node(page)
-        self.get_outlinks(page)
-        self.get_inlinks(page)
-        self.done_pages.append(page)
-        self.save()
+        if page not in self.done_pages:
+            page_file = os.path.join(self.pages_cache, "%s-%s.json" % (self.language, page))
+            lastweek = time.time() - 7*24*60*60
+            if os.path.exists(page_file) and os.path.getmtime(page_file) > lastweek:
+                with open(page_file) as f:
+                    data = json.load(f)
+                out_links = data["out"]
+                in_links = data["in"]
+            else:
+                out_links = self.get_outlinks(page)
+                in_links = self.get_inlinks(page)
+                with open(page_file, 'w') as f:
+                    json.dump({"in": in_links, "out": out_links}, f)
+            for lk in out_links:
+                self.add_edge(page, lk)
+            for lk in in_links:
+                self.add_edge(lk, page)
+            self.done_pages.append(page)
+            self.save()
         return {
             'token': self.token,
             'max_contro': self.max_contro,
@@ -156,8 +173,6 @@ class WikipageNetwork(object):
 
     def get_outlinks(self, page):
         out_links = []
-        if page in self.done_pages:
-            return
         url = "https://%s.wikipedia.org/wiki/%s" % (self.language, page)
         htmlcontent = requests.get(url).text
         for link in self.regex_links.findall(htmlcontent):
@@ -166,12 +181,10 @@ class WikipageNetwork(object):
                 continue
             out_links.append(link)
         self.solve_redirects(out_links)
-        for link in out_links:
-            self.add_edge(page, link)
+        return out_links
 
     def get_inlinks(self, page):
-        if page in self.done_pages:
-            return
+        in_links = []
         api_url = "%s&list=backlinks&blredirect&blfilterredir=nonredirects&bllimit=500&bltitle=%s" % (self.root_api_url, page)
         cur_api_url = api_url
         while cur_api_url:
@@ -181,11 +194,12 @@ class WikipageNetwork(object):
                 lk = self.clean_page(lk)
                 if self.filter_link(lk):
                     continue
-                self.add_edge(lk, page)
+                in_links.append(lk)
             if "query-continue" in data:
                 cur_api_url = "%s&blcontinue=%s" % (api_url, data["query-continue"]["backlinks"]["blcontinue"])
             else:
                 cur_api_url = ""
+        return in_links
 
 if __name__ ==  '__main__':
     net = WikipageNetwork(None, "Global_warming", "en")
