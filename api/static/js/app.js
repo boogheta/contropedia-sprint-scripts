@@ -4,19 +4,21 @@
   //-----------
   var app = {
     token: undefined,
-    scale: chroma.scale(['red']),
+    scale: chroma.scale(['wheat', 'maroon']),
+    maxControversiality: 6,
     sigma: {
       instance: null,
       defaultSettings: {
-        maxEdgeSize: 0.1,
+        maxEdgeSize: 0.05,
         hideEdgesOnMove: true,
         defaultNodeColor: '#ccc',
+        defaultEdgeColor: '#ccc',
         doubleClickEnabled: false,
         minNodeSize: 3
       },
       forceAtlas2Settings: {
-        gravity: 0.1,
-        slowDown: 2
+        gravity: 0.001,
+        strongGravityMode: true
       }
     }
   };
@@ -59,6 +61,9 @@
       if (!app.token)
         app.token = response.token;
 
+      // Setting max contro
+      app.maxControversiality = response.max_contro || app.maxControversiality;
+
       // Loading graph
       loadGraph(response.graph);
     });
@@ -80,6 +85,9 @@
         console.log(response.error, response.details);
         return;
       }
+
+      // Setting max contro
+      app.maxControversiality = response.max_contro || app.maxControversiality;
 
       // Loading graph
       loadGraph(response.graph);
@@ -132,6 +140,7 @@
         return;
 
       n.size = n.size || 1;
+      n.co = +n.co || 0;
       n.x = Math.random();
       n.y = Math.random();
       s.graph.addNode(n);
@@ -146,6 +155,8 @@
       e.source += '';
       e.target += '';
 
+      e.color = app.sigma.defaultSettings.defaultEdgeColor;
+
       // Checking existence of similar edge
       if (s.graph.hasSimilarEdge(e.source, e.target))
         return;
@@ -153,9 +164,13 @@
       s.graph.addEdge(e);
     });
 
+    // Updating maxContro
+    app.maxControversiality = Math.max.apply(Math, s.graph.nodes().map(function(n) { return n.co; }));
+
     // Adjusting size and color of nodes
     s.graph.nodes().forEach(function(n) {
       n.size = s.graph.degree(n.id, 'out');
+      n.color = app.scale(n.co / app.maxControversiality).hex()
     });
 
     // Refreshing
