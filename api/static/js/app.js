@@ -4,6 +4,7 @@
   //-----------
   var app = {
     token: undefined,
+    scale: chroma.scale(['red']),
     sigma: {
       instance: null,
       defaultSettings: {
@@ -152,7 +153,7 @@
       s.graph.addEdge(e);
     });
 
-    // Adjusting size of nodes
+    // Adjusting size and color of nodes
     s.graph.nodes().forEach(function(n) {
       n.size = s.graph.degree(n.id, 'out');
     });
