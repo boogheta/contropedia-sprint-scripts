@@ -158,7 +158,7 @@ class WikipageNetwork(object):
             else:
                 pages.remove(p)
                 pages.append(self.cache_redirs[p])
-        for chunk in chunkize(tosolve, 300):
+        for chunk in chunkize(tosolve, 250):
             redir_api_args = {
                 "redirects": 1,
                 "titles": "|".join(chunk)
