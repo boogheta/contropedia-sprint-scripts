@@ -11,13 +11,14 @@
       defaultSettings: {
         maxEdgeSize: 0.05,
         hideEdgesOnMove: true,
-        defaultNodeColor: '#ccc',
-        defaultEdgeColor: '#ccc',
+        defaultNodeColor: '#ececec',
+        defaultEdgeColor: '#ececec',
         doubleClickEnabled: false,
-        minNodeSize: 3
+        minNodeSize: 4,
+        maxNodeSize: 10
       },
       forceAtlas2Settings: {
-        gravity: 0.001,
+        gravity: 0.0001,
         strongGravityMode: true
       }
     }
