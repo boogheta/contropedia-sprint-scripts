@@ -8,9 +8,13 @@
       instance: null,
       defaultSettings: {
         hideEdgesOnMove: true,
-        defaultNodeColor: '#ccc'
+        defaultNodeColor: '#ccc',
+        doubleClickEnabled: false
       },
-      forceAtlas2Settings: {}
+      forceAtlas2Settings: {
+        gravity: 0.1,
+        slowDown: 2
+      }
     }
   };
 
@@ -57,8 +61,26 @@
 
   // On node doubleclick
   function onNodeDoubleClick(e) {
-    console.log(e);
+    var data = {
+      url: e.data.node.label,
+      token: app.token
+    };
+
+    // API Call
+    $.post('/graph', data, function(response) {
+      if (response.error) {
+        console.log(response.error, response.details);
+        return;
+      }
+
+      // Loading graph
+      loadGraph(response.graph);
+    });
   }
+
+  $('#bottom, #graph').mousedown(function(e) {
+    e.preventDefault();
+  });
 
 
   // Callbacks
@@ -80,17 +102,22 @@
 
     var s = app.sigma.instance;
 
+    // Killing forceAtlas2
+    s.killForceAtlas2();
+
     // Adding nodes and edges
     graph.nodes.forEach(function(n) {
+
+      // Casting to string id
+      n.id += '';
 
       // Not adding if node already exists
       if (s.graph.nodes(n.id) !== undefined)
         return;
 
-      // Casting to string id
-      n.id += '';
-
       n.size = n.size || 1;
+      n.x = Math.random();
+      n.y = Math.random();
       s.graph.addNode(n);
     });
 
@@ -112,6 +139,9 @@
 
     // Refreshing
     s.refresh();
+
+    // Starting ForceAtlas
+    s.startForceAtlas2(app.sigma.forceAtlas2Settings);
   }
 
   // Sigma's extensions

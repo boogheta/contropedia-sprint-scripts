@@ -20,7 +20,10 @@ def graph():
     url = request.form['url']
     token = request.form.get('token', None)
     try:
-        lang, title = parse_wikipedia_url(url)
+        if not token:
+            lang, title = parse_wikipedia_url(url)
+        else:
+            title = url
     except:
         return jsonify(**{'error': "Unable to parse input wikipedia"})
     if token:
