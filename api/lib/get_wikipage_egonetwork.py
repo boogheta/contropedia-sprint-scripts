@@ -4,15 +4,16 @@ import uuid, re, json, os
 import requests
 import networkx
 from networkx.readwrite import json_graph
-from helpers import add_network_node, add_network_edge, chunkize, format_edges
+from helpers import add_network_node, add_network_edge, chunkize, format_edges, query_controversiality_db
 
 # TODO
-# cache results of one page with timestamp
-# add read controversiality in sqlite)
-# filter network:
-#  - currently only nodes implied in reciprocal links are returned
-#  - change to filter on out_degree instead ?
-#  - add filter on controversiality ?
+# - performance:
+#  * cache results of one page with timestamp
+#  * run inlinks and outlinks asynchronously in parallel
+# - filter network:
+#  * currently only nodes implied in reciprocal links are returned
+#  * change to filter on out_degree instead ?
+#  * add filter on controversiality ?
 
 class WikipageNetwork(object):
 
@@ -29,6 +30,7 @@ class WikipageNetwork(object):
         self.index_pages = {}
         self.contro_pages = {}
         self.done_pages = []
+        self.max_contro = 0
         self.curid = 0
         if token:
             self.token = token
@@ -46,6 +48,7 @@ class WikipageNetwork(object):
         self.save()
         return {
             'token': self.token,
+            'max_contro': self.max_contro,
             'graph': self.return_filtered_network()
         }
 
@@ -72,6 +75,7 @@ class WikipageNetwork(object):
         self.done_pages = data["pages"]
         self.index_pages = data["index"]
         self.contro_pages = data["contro"]
+        self.max_contro = data["max_contro"]
         with open(self.networkfile) as f:
             self.network = json_graph.node_link_graph(json.load(f), True)
 
@@ -83,6 +87,7 @@ class WikipageNetwork(object):
                 "lastid": self.curid,
                 "pages": self.done_pages,
                 "index": self.index_pages,
+                "max_contro": self.max_contro,
                 "contro": self.contro_pages
             }, f)
         with open(self.networkfile, "w") as f:
@@ -91,8 +96,8 @@ class WikipageNetwork(object):
     def add_node(self, page):
         extrafields = [('label', self.index_pages), ('controversiality', self.contro_pages)]
         if page not in self.index_pages:
-            contro = 0
-            #contro = sqlite.get value
+            contro = query_controversiality_db(self.language, page)
+            self.max_contro = max(contro, self.max_contro)
             self.contro_pages[page] = contro
             add_network_node(self.network, self.curid, {"label": page, "controversiality": self.contro_pages[page]})
             self.index_pages[page] = self.curid

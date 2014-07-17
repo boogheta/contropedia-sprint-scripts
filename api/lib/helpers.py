@@ -1,3 +1,5 @@
+import sqlite3
+
 chunkize = lambda a, n: (a[i:i+n] for i in xrange(0, len(a), n))
 
 def parse_wikipedia_url(url):
@@ -18,3 +20,20 @@ def add_network_edge(network, nodefrom, nodeto):
 
 def format_edges(network):
     return [{"source": a, "target": b} for a, b in network.edges_iter()]
+
+def query_controversiality_db(language, title):
+    db = None
+    if language != "en":
+        return 0
+    contro = 0
+    try:
+        db = sqlite3.connect('controversialities.db')
+        contro = db.cursor().execute(
+            'SELECT contro FROM contro WHERE title = "%s"' % title
+        )
+    except sqlite3.Error, e:
+        pass
+    finally:
+        if db:
+            db.close()
+    return contro
