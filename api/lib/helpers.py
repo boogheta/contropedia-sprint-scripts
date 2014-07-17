@@ -28,9 +28,10 @@ def query_controversiality_db(language, title):
     contro = 0
     try:
         db = sqlite3.connect('controversialities.db')
-        contro = db.cursor().execute(
+        cursor = db.cursor()
+        contro = cursor.execute(
             'SELECT contro FROM contro WHERE title = "%s"' % title
-        )
+        ).fetchone()
     except sqlite3.Error, e:
         pass
     finally:
