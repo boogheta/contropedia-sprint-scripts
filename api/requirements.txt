@@ -2,3 +2,4 @@
 flask
 networkx
 requests
+sqlite3
