@@ -32,6 +32,8 @@ def query_controversiality_db(language, title):
         contro = cursor.execute(
             'SELECT contro FROM contro WHERE title = "%s"' % title
         ).fetchone()
+        if not contro:
+            contro = 0
     except sqlite3.Error, e:
         pass
     finally:
