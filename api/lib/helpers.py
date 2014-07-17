@@ -34,7 +34,7 @@ def query_controversiality_db(language, title):
         ).fetchone()
         if not contro:
             contro = 0
-        elif type(contro) == list:
+        elif type(contro) == tuple:
             contro = contro[0]
     except sqlite3.Error, e:
         pass
