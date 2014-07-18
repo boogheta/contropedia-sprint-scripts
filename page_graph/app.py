@@ -4,11 +4,14 @@ from flask import request
 from flask import jsonify
 from lib.helpers import parse_wikipedia_url
 from lib.get_wikipage_egonetwork import WikipageNetwork
+from multiprocessing import Pool
 
 cache_wikipedia_redirs = {}
 
 # Creating the application
 app = Flask(__name__)
+
+pool = Pool(processes=3)
 
 # Routes
 @app.route('/')
@@ -31,7 +34,7 @@ def graph():
     else:
         net = WikipageNetwork(title=title, language=lang, cache_redirs=cache_wikipedia_redirs)
     try:
-        result = net.add_page(title)
+        result = net.add_page(title, pool)
     except Exception as e:
         result = {'error': "Unable to process this page's network", 'details': '%s: %s' % (type(e), e)}
     return jsonify(**result)
