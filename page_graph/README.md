@@ -8,12 +8,16 @@ runs with pyhton 2.7 (never tested with other versions)
 git clone git@github.com:boogheta/contropedia-sprint-scripts.git
 
 # Go in appropriate folder
-cd ap contropedia-sprint-scripts/api
+cd contropedia-sprint-scripts/page_graph
 
-# Install dependencies (preferrably in a python virtualenv)
+# Install dependencies (preferably in a python virtualenv, use sudo otherwise)
 pip install -r requirements
 
-# Install the controversiality sqlite database in the api/ folder
+# Copy the controversiality sqlite database from David's CSV in the page_graph folder
+```
+# download or copy within the page_graph directory the csv with metrics on all articles from David named "all_articles_pages.csv"
+# then run the script which loads it and indexes it in a sqlite3 db for fast queries (since the CSV is 800Mo)
+./bin/make_controversialities_db.sh
 ```
 
 ## Usage
