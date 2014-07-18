@@ -6,7 +6,8 @@ mkdir -p "$datadir/.cache"
 
 function escapeit {
   perl -e 'use URI::Escape; print uri_escape shift();print"\n"' $1 |
-   sed 's/\s/_/g';
+   sed 's/\s/_/g' |
+   md5sum | sed 's/\s.*$//';
 }
 function download {
   cache="$datadir/.cache/$(escapeit $1)"
@@ -78,7 +79,7 @@ if [ ! -s "$datadir/sections.tsv" ]; then
 fi
 
 if [ ! -s "$datadir/revisions_sections.tsv" ]; then
-  echo "SELECT revision_id, section_name FROM element_edit WHERE revision_id IN ($revisions_list) GROUP BY revision_id, section_name" | mysql -u root -p contropedia > "$datadir/revisions_sections.tsv"
+  echo "SELECT to_revision_id as revision_id, raw_element as section_name FROM element_edit WHERE to_revision_id IN ($revisions_list) GROUP BY to_revision_id, raw_element" | mysql -u root -p contropedia > "$datadir/revisions_sections.tsv"
 fi
 
 # Extract discussions from David's data
