@@ -5,11 +5,8 @@ data/*/versions
 *.avi
 phantomjs-*
 *.tmp
-threads_links.tsv
-threads_titles.tsv
-threads_metrics.tsv
-sections.tsv
-revisions.tsv
-discussions.tsv
+*.tsv
+*.csv
+*.zip
 threads.json
 db.inc
