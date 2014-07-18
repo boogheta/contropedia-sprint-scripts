@@ -6,6 +6,7 @@ headdone=false
 cat "$1"        |
   tr '\r' ' '   |
   while read l; do
+    l=$(echo "$l" | sed 's/<LF>\s*/<LF>/g')
     if echo "$l" | grep -P "\t=+[^\t]+=+$" > /dev/null; then
       s=$(echo "$l" | perl -pe 's/^.*\t=+([^\t].*?)=+$/\1/')
     fi
