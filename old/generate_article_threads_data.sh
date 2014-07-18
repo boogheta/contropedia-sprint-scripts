@@ -98,6 +98,11 @@ grep -P "^$pageid\t" data/top20_thread_metrics_tree_string.csv | iconv -f "iso88
 head -n 1 data/top20_thread_titles.csv | iconv -f "iso8859-1" -t "utf8" > "$datadir/threads_links.tsv"
 grep -P "^$pageid\t" data/top20_thread_titles.csv | iconv -f "iso8859-1" -t "utf8" >> "$datadir/threads_links.tsv"
 
+# Extract actors from Eric's data
+if [ ! -s "$datadir/actors.tsv" ]; then
+  echo "SELECT e.canonical FROM element e LEFT JOIN element_edit ee ON ee.element_id = e.id LEFT JOIN section s ON ee.section_id = s.id LEFT JOIN revisions r ON ee.to_revision_id = r.id LEFT JOIN article_revisions ar ON ar.revision_id = r.id LEFT JOIN article a ON ar.article_id = a.id WHERE a.title = '$page' GROUP BY canonical ORDER BY canonical" | mysql -u root -p contropedia > "$datadir/actors.tsv"
+fi
+
 # Match discussions with article sections and assemble all data into $datadir/threads_matched.csv
 python match_discussions_sections.py "$page"
 

@@ -26,6 +26,9 @@ try:
     with open('revisions_sections.tsv') as csvf:
         rev_sec = csvf.read().split('\n')
         rev_sec.pop(0)
+    with open('actors.tsv') as csvf:
+        actors = csvf.read().split('\n')
+        actors.pop(0)
 except Exception as e:
     sys.stderr.write("ERROR trying to read data")
     sys.stderr.write("%s: %s" % (type(e), e))
@@ -51,7 +54,7 @@ re_abstract = re.compile(r'(^|\W)(intro(duction)?|abstract|lead|summar(y|ies)|pr
 clean_thread_name = lambda t: unescape_html(t).replace('_', ' ').strip('"[]()«»!?~<>.= ').strip("'")
 re_clean_lf = re.compile(r'\s*<LF>\s*', re.I)
 re_clean_text = re.compile(r'[^\w\d]+')
-re_clean_spec_chars = re.compile(r'[^\w\d\s]')
+re_clean_spec_chars = re.compile(r'[^[\w\d\s]')
 clean_text = lambda t: re_clean_text.sub(' ', re_clean_lf.sub('', unescape_html(t))).lower().strip()
 re_text_splitter = re.compile(r"[^\w\d']+")
 is_null_col = lambda x: not x or x in ["", "0", "-1"]
@@ -84,6 +87,7 @@ for row in discussions:
                   "chains_num": 0,
                   "chains_comments": 0,
                   "fulltext": "",
+                  "timestamped_text": [],
                   "permalink": "",
                   "revisions": [],
                   "article_sections": [],
@@ -103,6 +107,7 @@ for row in discussions:
     thread['nb_messages'] += 1
     thread['messages'].append(row)
     thread['fulltext'] += " " + clean_text(row["text"])
+    thread['timestamped_text'].append((clean_text(row["text"]), row['timestamp']))
 if thread:
     threads.append(thread)
 
@@ -158,7 +163,7 @@ for section in section_titles:
     allsections += " | " + s
     if len(s) > 5:
         for t in threads:
-            re_match_s = re.compile(r"%s" % re_clean_spec_chars.sub(".", s))
+            re_match_s = re.compile(r"%s" % re_clean_spec_chars.sub(".?", s))
             if 2*len(re_match_s.findall(t['fulltext'])) > t['nb_messages']:
                 print "MATCH maybe FOUND:", t['name'], "/", section
                 t['article_sections'].append(section)
@@ -215,4 +220,27 @@ with open('threads_matched.csv', 'w') as csvf:
                 print >> csvf, make_csv_line(data)
         else:
             print >> csvf, make_csv_line(data)
+
+re_clean_non_alphanum = re.compile(r'[^a-z0-9]')
+
+make_csv_line = lambda arr: "\t".join([str(a) for a in arr])
+# Identify page's actors within threads
+headers = ["article_title", "actor", "thread", "thread_permalink", "actor_in_thread_title", "n_matches_in_thread", "comments_timestamps"]
+with open('actors_matched.csv', 'w') as csvf:
+    print >> csvf, make_csv_line(headers)
+    for actor in actors:
+        act = clean_thread_name(actor).lower()
+        if len(act) < 2: continue
+        re_actor = re.compile(r"%s" % re_clean_spec_chars.sub(".?", act))
+        for thread in threads:
+            match_title = 1 if act in clean_thread_name(thread['name']).lower() else 0
+            all_matches = 0
+            timestamps = []
+            for te, ti in thread["timestamped_text"]:
+                n_match = len(re_actor.findall(te.lower()))
+                if n_match:
+                    all_matches += n_match
+                    timestamps.append(ti)
+            if (match_title or all_matches) and thread['permalink']:
+                print >> csvf, make_csv_line([page_title, actor, thread['rawname'], thread['permalink'], all_matches, match_title, timestamps])
 
