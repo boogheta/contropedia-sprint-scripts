@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source db.inc
+
 page=$(echo $1 | sed 's/ /_/g')
 datadir="data/$page"
 mkdir -p "$datadir/.cache"
@@ -79,7 +81,7 @@ if [ ! -s "$datadir/sections.tsv" ]; then
 fi
 
 if [ ! -s "$datadir/revisions_sections.tsv" ]; then
-  echo "SELECT to_revision_id as revision_id, raw_element as section_name FROM element_edit WHERE to_revision_id IN ($revisions_list) GROUP BY to_revision_id, raw_element" | mysql -u root -p contropedia > "$datadir/revisions_sections.tsv"
+  echo "SELECT to_revision_id as revision_id, raw_element as section_name FROM element_edit WHERE to_revision_id IN ($revisions_list) GROUP BY to_revision_id, raw_element" | mysql -u $MYSQLUSER -p$MYSQLPASS $MYSQLDB > "$datadir/revisions_sections.tsv"
 fi
 
 # Extract discussions from David's data
@@ -101,7 +103,7 @@ grep -P "^$pageid\t" data/top20_thread_titles.csv | iconv -f "iso8859-1" -t "utf
 
 # Extract actors from Eric's data
 if [ ! -s "$datadir/actors.tsv" ]; then
-  echo "SELECT e.canonical FROM element e LEFT JOIN element_edit ee ON ee.element_id = e.id LEFT JOIN section s ON ee.section_id = s.id LEFT JOIN revisions r ON ee.to_revision_id = r.id LEFT JOIN article_revisions ar ON ar.revision_id = r.id LEFT JOIN article a ON ar.article_id = a.id WHERE a.title = '$page' GROUP BY canonical ORDER BY canonical" | mysql -u root -p contropedia > "$datadir/actors.tsv"
+  echo "SELECT e.canonical FROM element e LEFT JOIN element_edit ee ON ee.element_id = e.id LEFT JOIN section s ON ee.section_id = s.id LEFT JOIN revisions r ON ee.to_revision_id = r.id LEFT JOIN article_revisions ar ON ar.revision_id = r.id LEFT JOIN article a ON ar.article_id = a.id WHERE a.title = '$page' GROUP BY canonical ORDER BY canonical" | mysql -u $MYSQLUSER -p$MYSQLPASS $MYSQLDB > "$datadir/actors.tsv"
 fi
 
 # Match discussions with article sections and assemble all data into $datadir/threads_matched.csv

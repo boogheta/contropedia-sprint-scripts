@@ -42,6 +42,7 @@ def safe_utf8_decode(t):
             return t.decode('iso8859-1')
         except:
             return t
+
 parse_ts = lambda t: date.isoformat(datetime.fromtimestamp(t))
 parse_date = lambda d: parse_ts(mktime(strptime(d.split(', ')[1].replace("(UTC)", "").strip(), "%d %B %Y")))
 SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
