@@ -9,6 +9,7 @@ from datetime import date, datetime
 from locale import setlocale, LC_ALL
 setlocale(LC_ALL, 'en_GB.utf8')
 
+# Open required data that was generated via the the generate_article_threads_data.sh
 try:
     page_title = sys.argv[1]
     datadir = "data/%s" % page_title
@@ -43,6 +44,7 @@ def safe_utf8_decode(t):
         except:
             return t
 
+# Bunch of small functions and regexp to treat and cleanup dates and text
 parse_ts = lambda t: date.isoformat(datetime.fromtimestamp(t))
 parse_date = lambda d: parse_ts(mktime(strptime(d.split(', ')[1].replace("(UTC)", "").strip(), "%d %B %Y")))
 SPACES = ur'[  \s\t\u0020\u00A0\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F\u2060\u3000]'
@@ -60,14 +62,17 @@ clean_text = lambda t: re_clean_text.sub(' ', re_clean_lf.sub('', unescape_html(
 re_text_splitter = re.compile(r"[^\w\d']+")
 is_null_col = lambda x: not x or x in ["", "0", "-1"]
 
-# Prepare threads data
+# Prepare threads data from all discussions lines
 thread = None
 threads = []
 curthread = ""
 threadidx = {}
+# Read data from David's discussions file line by line
 for row in discussions:
+    # Skip lines without a thread title
     if not row['thread_title']:
         continue
+    # Store in threads array previous thread object and create a new one whenever reaching a line with a different thread title
     idx = len(threads)
     th = clean_thread_name(row['thread_title'])
     if th != curthread:
@@ -97,18 +102,27 @@ for row in discussions:
     if is_null_col(row["timestamp"]):
         curthread = th
         continue
+    # Collect and compute useful metas on the threads
     dt = parse_ts(int(row['timestamp'])*60)
     if not thread['date_min']:
         thread['date_min'] = dt
-    thread['date_max'] = dt
+    else:
+        thread['date_min'] = min(thread['date_min'], dt)
+    if not thread['date_max']:
+        thread['date_max'] = dt
+    else:
+        thread['date_max'] = max(thread['date_max'], dt)
     us = row["author_name"].strip()
     if us not in thread["users"]:
         thread['users'].append(us)
         thread['nb_users'] += 1
     thread['nb_messages'] += 1
     thread['messages'].append(row)
+    # Save a field containing the concatenated cleaned up text from all comments
     thread['fulltext'] += " " + clean_text(row["text"])
+    # And one as an array of tuples (text, timestamp) for each comment for use in the actors matching part
     thread['timestamped_text'].append((clean_text(row["text"]), row['timestamp']))
+# Save last current thread since we won't find a new one after it
 if thread:
     threads.append(thread)
 
@@ -139,6 +153,8 @@ for row in rev_sec:
     if not rev_id in revisions_sec:
         revisions_sec[rev_id] = []
     revisions_sec[rev_id].append(sec_title)
+
+#Loop through all revisions and search for a blurry version of the thread title within the revision comment
 for row in revisions:
     src = re_talk.search(row["rev_comment"])
     if src:
@@ -154,14 +170,17 @@ for row in revisions:
             threads[threadidx[t]]['match'] += 1
 
 
-# Look for article sections within thread names
+# Look for article sections within thread names and fulltext of all comments
 sections = {}
 allsections = ""
+# First generate a blurry cleaned list of the article's section titles
 for section in section_titles:
     s = clean_thread_name(section).lower()
     if s not in sections:
         sections[s] = section
     allsections += " | " + s
+    # Try to match the sections titles within the fulltext of each thread's comment, might be imperfect
+    # so doing it onlty for long thread names since too short ones will most probably match many false positives
     if len(s) > 5:
         for t in threads:
             try:
@@ -169,15 +188,21 @@ for section in section_titles:
             except:
                 print "ERROR compiling regexp %s %s" % (s, re_clean_spec_chars.sub(".?", s))
                 continue
+            # Only validate when the word was found in at least half of the thread's comments
             if 2*len(re_match_s.findall(t['fulltext'])) > t['nb_messages']:
                 print "MATCH maybe FOUND:", t['name'], "/", section
                 t['article_sections'].append(section)
                 t['match'] += 1
+# Then try to find sections titles within the thread's title
 for thread in threadidx:
+    # If a thread's title matches a section one, this is definitely a match
     if thread in sections:
         print "MATCH FOUND:", thread, "/", sections[thread]
         threads[threadidx[thread]]['article_sections'].append(sections[thread])
         threads[threadidx[thread]]['match'] += 1
+    # Otherwise try some heuristic when finding the section within a thread's title
+    # Only take it when the section's name is longer than 3 chars to avoid false positives,
+    # And only take it when the section has at least 2 words or a tenth of the number of words in the thread's title
     else:
         for section in sections:
             n_words = len(re_text_splitter.split(section))
@@ -185,32 +210,40 @@ for thread in threadidx:
                 print "MATCH probably FOUND:", thread, "/", sections[section]
                 for test in threads[threadidx[thread]]['article_sections']:
                     tmps = clean_thread_name(section).lower()
+                    # If we find a bigger match than a previous one, we favor this one
                     if test in tmps and test != tmps:
                         print " -> probably better than match with « %s », removing it" % test
                         threads[threadidx[thread]]['article_sections'].remove(test)
                         threads[threadidx[thread]]['match'] -= 1
                 threads[threadidx[thread]]['article_sections'].append(sections[section])
                 threads[threadidx[thread]]['match'] += 1
+    # Quite often threads correspond to the header of a wikipage following a bunch of possible names for it (abstract, summary, etc...)
+    # Try to match those
     if re_abstract.search(thread):
         print "MATCH probably GUESSED:", thread, "/", "abstract"
         threads[threadidx[thread]]['article_sections'].append("asbtract")
         threads[threadidx[thread]]['match'] += 1
 
+
+# IDEAS FOR MATCH IMPROVEMENTS:
+# - use userids and timestamps of comments to countermatch with same user's revisions around the same period of time
+
 matches = sum([1 for t in threads if t['match'] > 0])
 print "=================="
 print "FOUND %d matches out of %d threads (%s)" % (matches, len(threadidx), str(matches*100/len(threadidx))+"%")
 print "=================="
-print "MISSINGS:"
 for t in threads:
     if not 'max_depth' in t:
         th = clean_thread_name(t['name']).lower()
         print "WARNING Can't find max_depth in %s" % th
     if False and not t['match']:
-        print t['name'], t['nb_messages'], t['nb_users']
+        print "MISSING:", t['name'], t['nb_messages'], t['nb_users']
 
+#Save the threads data for debug purposes
 with open('threads.json', 'w') as jsonf:
     json.dump(threads, jsonf, ensure_ascii=False)
 
+# Save the built data on each article/thread match as a csv
 make_csv_line = lambda arr: ",".join(['"'+str(a).replace('"', '""')+'"' if ',' in str(a) else str(a) for a in arr])
 headers = ["article_title", "section", "thread", "controversiality", "min_date", "max_date", "nb_users", "nb_messages", "users_hindex", "max_depth", "tree_hindex", "chains_num", "chains_comments", "permalink"]
 with open('threads_matched.csv', 'w') as csvf:
@@ -226,19 +259,23 @@ with open('threads_matched.csv', 'w') as csvf:
         else:
             print >> csvf, make_csv_line(data)
 
-re_clean_non_alphanum = re.compile(r'[^a-z0-9]')
-
-make_csv_line = lambda arr: "\t".join([str(a) for a in arr])
 # Identify page's actors within threads
+make_csv_line = lambda arr: "\t".join([str(a) for a in arr])
 headers = ["article_title", "actor", "thread", "thread_permalink", "actor_in_thread_title", "n_matches_in_thread", "comments_timestamps"]
 with open('actors_matched.csv', 'w') as csvf:
     print >> csvf, make_csv_line(headers)
+    # Iterate on all of the page's actors as identified within Eric's database
     for actor in actors:
+        # build a regexp to blurry match words similar to the actor by replacing with ".?" every non alphanumeric (or space) character
         act = clean_thread_name(actor).lower()
-        if len(act) < 2: continue
         re_actor = re.compile(r"%s" % re_clean_spec_chars.sub(".?", act))
+        # SKIP empty actors and single-letter ones such as "d"
+        if len(act) < 2: continue
+        # Iterate on all threads to search the actor
         for thread in threads:
-            match_title = 1 if act in clean_thread_name(thread['name']).lower() else 0
+            # Search for the actor in the thread's title at first
+            match_title = 1 if len(re_actor.findall(thread['name'].lower())) else 0
+            # Search for the actor in each comment, sum the matches and list the corresponding timestamps
             all_matches = 0
             timestamps = []
             for te, ti in thread["timestamped_text"]:
@@ -246,6 +283,7 @@ with open('actors_matched.csv', 'w') as csvf:
                 if n_match:
                     all_matches += n_match
                     timestamps.append(ti)
+            # If there's at least one match, dump a tsv line
             if (match_title or all_matches) and thread['permalink']:
                 print >> csvf, make_csv_line([page_title, actor, thread['rawname'], thread['permalink'], all_matches, match_title, timestamps])
 
