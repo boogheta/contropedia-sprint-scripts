@@ -1,5 +1,6 @@
 #!/bin/bash
 # To run on the wikitools server
+# UNUSED in the end
 
 page=$(echo $1 | sed 's/ /_/g')
 escpage=$(echo $page | sed 's/\(["'"'"']\)/\\\1/g')

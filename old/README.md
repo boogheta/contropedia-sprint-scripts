@@ -5,7 +5,7 @@ These build the data on discussions for a single wikipedia article.
 The main script from which everything else runs is `generate_article_threads_data.sh`:
 
 This works using 4 data sources in addition to Wikipedia's API:
-- Eric's MySQL contropedia database, which needs to be loaded locally, under the name contropedia and with a user/password set inside a db.inc file to be adapted from db.inc.example
+- Eric's MySQL contropedia database, which needs to be loaded locally, under the name contropedia and with a user/password set inside a db.inc file to be adapted from db.inc.example (it currently uses an old one whose dump is available as sql within data/extra/) A sample loader file is provided in `load_db.sh`
 - David's data results on discussions which samples are included in this repo and located in the data directory:
  * top20_discussions_compact_text.csv
  * top20_thread_metrics_tree_string.csv

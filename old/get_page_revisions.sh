@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#UNUSED
+
 PATH=$PATH:$(pwd)/phantomjs-1.9.7-linux-i686/bin
 
 page=$(echo $1 | sed 's/ /_/g')

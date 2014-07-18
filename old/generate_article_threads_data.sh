@@ -1,16 +1,20 @@
 #!/bin/bash
 
+# LOAD MYSQL CONFIG
 source db.inc
 
+# TAKE PAGE ARG AS INPUT
 page=$(echo $1 | sed 's/ /_/g')
 datadir="data/$page"
-mkdir -p "$datadir/.cache"
 
+# Function to get a cache id for each query
 function escapeit {
   perl -e 'use URI::Escape; print uri_escape shift();print"\n"' $1 |
    sed 's/\s/_/g' |
    md5sum | sed 's/\s.*$//';
 }
+# Function to download queries with a cache
+mkdir -p "$datadir/.cache"
 function download {
   cache="$datadir/.cache/$(escapeit $1)"
   if [ ! -s "$cache" ]; then
@@ -31,6 +35,7 @@ function download {
 # Download the list of all revisions of the page from the API
 rootapiurl="https://en.wikipedia.org/w/api.php?action"
 revs_url="$rootapiurl=query&prop=revisions&titles=$page&rvprop=ids|user|timestamp|comment|sha1&rvlimit=500&rvdir=newer&format=xml&rvstartid="
+
 # cleanup cache for latest revision list
 lastid=0
 for file in $(ls $datadir/.cache/*startid%3D* 2> /dev/null | grep -v ".tmp$"); do
@@ -40,6 +45,8 @@ for file in $(ls $datadir/.cache/*startid%3D* 2> /dev/null | grep -v ".tmp$"); d
   fi
 done
 rm -f "$datadir/.cache/"$(escapeit "$revs_url$lastid")
+
+# Generate a CSV of all revisions from the API data
 run=true
 nextid=0
 pageid=
@@ -80,6 +87,7 @@ if [ ! -s "$datadir/sections.tsv" ]; then
   rm "$datadir/sections.tmp"
 fi
 
+# Get the association of revisions with sections from Eric's database
 if [ ! -s "$datadir/revisions_sections.tsv" ]; then
   echo "SELECT to_revision_id as revision_id, raw_element as section_name FROM element_edit WHERE to_revision_id IN ($revisions_list) GROUP BY to_revision_id, raw_element" | mysql -u $MYSQLUSER -p$MYSQLPASS $MYSQLDB > "$datadir/revisions_sections.tsv"
 fi
@@ -101,14 +109,14 @@ grep -P "^$pageid\t" data/top20_thread_metrics_tree_string.csv | iconv -f "iso88
 head -n 1 data/top20_thread_titles.csv | iconv -f "iso8859-1" -t "utf8" > "$datadir/threads_links.tsv"
 grep -P "^$pageid\t" data/top20_thread_titles.csv | iconv -f "iso8859-1" -t "utf8" >> "$datadir/threads_links.tsv"
 
-# Extract actors from Eric's data
+# Extract actors from Eric's database
 if [ ! -s "$datadir/actors.tsv" ]; then
   echo "SELECT e.canonical FROM element e LEFT JOIN element_edit ee ON ee.element_id = e.id LEFT JOIN section s ON ee.section_id = s.id LEFT JOIN revisions r ON ee.to_revision_id = r.id LEFT JOIN article_revisions ar ON ar.revision_id = r.id LEFT JOIN article a ON ar.article_id = a.id WHERE a.title = '$page' GROUP BY canonical ORDER BY canonical" | mysql -u $MYSQLUSER -p$MYSQLPASS $MYSQLDB > "$datadir/actors.tsv"
 fi
 
-# Match discussions with article sections and assemble all data into $datadir/threads_matched.csv
+# Match discussions with article sections and actors, and assemble all data into $datadir/threads_matched.csv and $datadir/actors_matched.csv
 python match_discussions_sections.py "$page"
 
-# Collect HTML and screenshots for all revisions webpages 
+# UNUSED Collect HTML and screenshots for all revisions webpages 
 # bash get_page_revisions.sh $page
 
