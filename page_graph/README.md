@@ -14,7 +14,7 @@ cd contropedia-sprint-scripts/page_graph
 pip install -r requirements
 
 # Copy the controversiality sqlite database from David's CSV in the page_graph folder
-```
+
 # download or copy within the page_graph directory the csv with metrics on all articles from David named "all_articles_pages.csv"
 # then run the script which loads it and indexes it in a sqlite3 db for fast queries (since the CSV is 800Mo)
 ./bin/make_controversialities_db.sh
